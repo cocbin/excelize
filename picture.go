@@ -76,42 +76,14 @@ func parseFormatPictureSet(formatSet string) (*formatPicture, error) {
 //        }
 //    }
 //
-// The optional parameter "autofit" specifies if make image size auto fits the
-// cell, the default value of that is 'false'.
+// LinkType defines two types of hyperlink "External" for web site or
+// "Location" for moving to one of cell in this workbook. When the
+// "hyperlink_type" is "Location", coordinates need to start with "#".
 //
-// The optional parameter "hyperlink" specifies the hyperlink of the image.
-//
-// The optional parameter "hyperlink_type" defines two types of
-// hyperlink "External" for website or "Location" for moving to one of the
-// cells in this workbook. When the "hyperlink_type" is "Location",
-// coordinates need to start with "#".
-//
-// The optional parameter "positioning" defines two types of the position of a
-// image in an Excel spreadsheet, "oneCell" (Move but don't size with
-// cells) or "absolute" (Don't move or size with cells). If you don't set this
-// parameter, the default positioning is move and size with cells.
-//
-// The optional parameter "print_obj" indicates whether the image is printed
-// when the worksheet is printed, the default value of that is 'true'.
-//
-// The optional parameter "lock_aspect_ratio" indicates whether lock aspect
-// ratio for the image, the default value of that is 'false'.
-//
-// The optional parameter "locked" indicates whether lock the image. Locking
-// an object has no effect unless the sheet is protected.
-//
-// The optional parameter "x_offset" specifies the horizontal offset of the
-// image with the cell, the default value of that is 0.
-//
-// The optional parameter "x_scale" specifies the horizontal scale of images,
-// the default value of that is 1.0 which presents 100%.
-//
-// The optional parameter "y_offset" specifies the vertical offset of the
-// image with the cell, the default value of that is 0.
-//
-// The optional parameter "y_scale" specifies the vertical scale of images,
-// the default value of that is 1.0 which presents 100%.
-//
+// Positioning defines two types of the position of a picture in an Excel
+// spreadsheet, "oneCell" (Move but don't size with cells) or "absolute"
+// (Don't move or size with cells). If you don't set this parameter, default
+// positioning is move and size with cells.
 func (f *File) AddPicture(sheet, cell, picture, format string) error {
 	var err error
 	// Check picture exists first.
@@ -122,7 +94,7 @@ func (f *File) AddPicture(sheet, cell, picture, format string) error {
 	if !ok {
 		return ErrImgExt
 	}
-	file, _ := ioutil.ReadFile(filepath.Clean(picture))
+	file, _ := ioutil.ReadFile(picture)
 	_, name := filepath.Split(picture)
 	return f.AddPictureFromBytes(sheet, cell, format, name, ext, file)
 }
@@ -176,7 +148,6 @@ func (f *File) AddPictureFromBytes(sheet, cell, format, name, extension string, 
 	if err != nil {
 		return err
 	}
-	ws.Lock()
 	// Add first picture for given sheet, create xl/drawings/ and xl/drawings/_rels/ folder.
 	drawingID := f.countDrawings() + 1
 	drawingXML := "xl/drawings/drawing" + strconv.Itoa(drawingID) + ".xml"
@@ -191,7 +162,6 @@ func (f *File) AddPictureFromBytes(sheet, cell, format, name, extension string, 
 		}
 		drawingHyperlinkRID = f.addRels(drawingRels, SourceRelationshipHyperLink, formatSet.Hyperlink, hyperlinkType)
 	}
-	ws.Unlock()
 	err = f.addDrawingPicture(sheet, drawingXML, cell, name, img.Width, img.Height, drawingRID, drawingHyperlinkRID, formatSet)
 	if err != nil {
 		return err
@@ -227,8 +197,8 @@ func (f *File) deleteSheetRelationships(sheet, rID string) {
 // addSheetLegacyDrawing provides a function to add legacy drawing element to
 // xl/worksheets/sheet%d.xml by given worksheet name and relationship index.
 func (f *File) addSheetLegacyDrawing(sheet string, rID int) {
-	ws, _ := f.workSheetReader(sheet)
-	ws.LegacyDrawing = &xlsxLegacyDrawing{
+	xlsx, _ := f.workSheetReader(sheet)
+	xlsx.LegacyDrawing = &xlsxLegacyDrawing{
 		RID: "rId" + strconv.Itoa(rID),
 	}
 }
@@ -236,8 +206,8 @@ func (f *File) addSheetLegacyDrawing(sheet string, rID int) {
 // addSheetDrawing provides a function to add drawing element to
 // xl/worksheets/sheet%d.xml by given worksheet name and relationship index.
 func (f *File) addSheetDrawing(sheet string, rID int) {
-	ws, _ := f.workSheetReader(sheet)
-	ws.Drawing = &xlsxDrawing{
+	xlsx, _ := f.workSheetReader(sheet)
+	xlsx.Drawing = &xlsxDrawing{
 		RID: "rId" + strconv.Itoa(rID),
 	}
 }
@@ -245,28 +215,32 @@ func (f *File) addSheetDrawing(sheet string, rID int) {
 // addSheetPicture provides a function to add picture element to
 // xl/worksheets/sheet%d.xml by given worksheet name and relationship index.
 func (f *File) addSheetPicture(sheet string, rID int) {
-	ws, _ := f.workSheetReader(sheet)
-	ws.Picture = &xlsxPicture{
+	xlsx, _ := f.workSheetReader(sheet)
+	xlsx.Picture = &xlsxPicture{
 		RID: "rId" + strconv.Itoa(rID),
 	}
 }
 
 // countDrawings provides a function to get drawing files count storage in the
 // folder xl/drawings.
-func (f *File) countDrawings() (count int) {
+func (f *File) countDrawings() int {
+	c1, c2 := 0, 0
 	f.Pkg.Range(func(k, v interface{}) bool {
 		if strings.Contains(k.(string), "xl/drawings/drawing") {
-			count++
+			c1++
 		}
 		return true
 	})
 	f.Drawings.Range(func(rel, value interface{}) bool {
 		if strings.Contains(rel.(string), "xl/drawings/drawing") {
-			count++
+			c2++
 		}
 		return true
 	})
-	return
+	if c1 < c2 {
+		return c2
+	}
+	return c1
 }
 
 // addDrawingPicture provides a function to add picture by given sheet,
@@ -481,20 +455,14 @@ func (f *File) getSheetRelationshipsTargetByID(sheet, rID string) string {
 }
 
 // GetPicture provides a function to get picture base name and raw content
-// embed in spreadsheet by given worksheet and cell name. This function
-// returns the file name in spreadsheet and file contents as []byte data
-// types. For example:
+// embed in XLSX by given worksheet and cell name. This function returns the
+// file name in XLSX and file contents as []byte data types. For example:
 //
 //    f, err := excelize.OpenFile("Book1.xlsx")
 //    if err != nil {
 //        fmt.Println(err)
 //        return
 //    }
-//    defer func() {
-//        if err := f.Close(); err != nil {
-//            fmt.Println(err)
-//        }
-//    }()
 //    file, raw, err := f.GetPicture("Sheet1", "A2")
 //    if err != nil {
 //        fmt.Println(err)
@@ -527,6 +495,25 @@ func (f *File) GetPicture(sheet, cell string) (string, []byte, error) {
 		strings.Replace(target, "../drawings", "xl/drawings/_rels", -1), ".xml", ".xml.rels", -1)
 
 	return f.getPicture(row, col, drawingXML, drawingRelationships)
+}
+
+func (f *File) GetPictures(sheet string) ([]*Picture, error) {
+	ws, err := f.workSheetReader(sheet)
+	if err != nil {
+		return nil, err
+	}
+	if ws.Drawing == nil {
+		return nil, err
+	}
+	target := f.getSheetRelationshipsTargetByID(sheet, ws.Drawing.RID)
+	drawingXML := strings.Replace(target, "..", "xl", -1)
+	if _, ok := f.Pkg.Load(drawingXML); !ok {
+		return nil, err
+	}
+	drawingRelationships := strings.Replace(
+		strings.Replace(target, "../drawings", "xl/drawings/_rels", -1), ".xml", ".xml.rels", -1)
+
+	return f.getPictures(drawingXML, drawingRelationships)
 }
 
 // DeletePicture provides a function to delete charts in spreadsheet by given
@@ -595,6 +582,71 @@ func (f *File) getPicture(row, col int, drawingXML, drawingRelationships string)
 	return
 }
 
+type PictureCell struct {
+	Row int
+	Col int
+}
+type Picture struct {
+	Name string
+	From PictureCell
+	To PictureCell
+	Raw [] byte
+}
+
+func (f *File) getPictures(drawingXML, drawingRelationships string) (results[] * Picture, err error) {
+	var (
+		//wsDr            *xlsxWsDr
+		ok              bool
+		deWsDr          *decodeWsDr
+		drawRel         *xlsxRelationship
+		deTwoCellAnchor *decodeTwoCellAnchor
+	)
+
+	//wsDr, _ = f.drawingParser(drawingXML)
+	//if ret, buf = f.getPictureFromWsDr(row, col, drawingRelationships, wsDr); len(buf) > 0 {
+	//	return
+	//}
+	deWsDr = new(decodeWsDr)
+	if err = f.xmlNewDecoder(bytes.NewReader(namespaceStrictToTransitional(f.readXML(drawingXML)))).
+		Decode(deWsDr); err != nil && err != io.EOF {
+		err = fmt.Errorf("xml decode error: %s", err)
+		return
+	}
+	err = nil
+	for _, anchor := range deWsDr.TwoCellAnchor {
+		deTwoCellAnchor = new(decodeTwoCellAnchor)
+		if err = f.xmlNewDecoder(strings.NewReader("<decodeTwoCellAnchor>" + anchor.Content + "</decodeTwoCellAnchor>")).
+			Decode(deTwoCellAnchor); err != nil && err != io.EOF {
+			err = fmt.Errorf("xml decode error: %s", err)
+			return
+		}
+		if err = nil; deTwoCellAnchor.From != nil && deTwoCellAnchor.Pic != nil {
+			// if deTwoCellAnchor.From.Col == col && deTwoCellAnchor.From.Row == row {
+				drawRel = f.getDrawingRelationships(drawingRelationships, deTwoCellAnchor.Pic.BlipFill.Blip.Embed)
+				if _, ok = supportImageTypes[filepath.Ext(drawRel.Target)]; ok {
+					ret := filepath.Base(drawRel.Target)
+					if buffer, _ := f.Pkg.Load(strings.Replace(drawRel.Target, "..", "xl", -1)); buffer != nil {
+						buf := buffer.([]byte)
+						results = append(results, &Picture{
+							Name: ret,
+							Raw: buf,
+							From: PictureCell{
+								Row: deTwoCellAnchor.From.Row,
+								Col: deTwoCellAnchor.From.Col,
+							},
+							To: PictureCell {
+								Row: deTwoCellAnchor.To.Row,
+								Col: deTwoCellAnchor.To.Col,	
+							},
+						})
+					}
+				}
+			// }
+		}
+	}
+	return
+}
+
 // getPictureFromWsDr provides a function to get picture base name and raw
 // content in worksheet drawing by given coordinates and drawing
 // relationships.
@@ -654,7 +706,7 @@ func (f *File) drawingsWriter() {
 }
 
 // drawingResize calculate the height and width after resizing.
-func (f *File) drawingResize(sheet, cell string, width, height float64, formatSet *formatPicture) (w, h, c, r int, err error) {
+func (f *File) drawingResize(sheet string, cell string, width, height float64, formatSet *formatPicture) (w, h, c, r int, err error) {
 	var mergeCells []MergeCell
 	mergeCells, err = f.GetMergeCells(sheet)
 	if err != nil {

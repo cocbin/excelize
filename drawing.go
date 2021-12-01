@@ -1168,6 +1168,54 @@ func (f *File) drawingParser(path string) (*xlsxWsDr, int) {
 				content.TwoCellAnchor = append(content.TwoCellAnchor, &xdrCellAnchor{
 					EditAs:       v.EditAs,
 					GraphicFrame: v.Content,
+					From: &xlsxFrom{
+						Col:    v.From.Col,
+						ColOff: v.From.ColOff,
+						Row:    v.From.Row,
+						RowOff: v.From.RowOff,
+					},
+					To: &xlsxTo{
+						Col:    v.To.Col,
+						ColOff: v.To.ColOff,
+						Row:    v.To.Row,
+						RowOff: v.To.RowOff,
+					},
+					Pic: &xlsxPic{
+						NvPicPr: xlsxNvPicPr{
+							CNvPr: xlsxCNvPr{
+								ID:         v.Pic.NvPicPr.CNvPr.ID,
+								Name:       v.Pic.NvPicPr.CNvPr.Name,
+								Descr:      v.Pic.NvPicPr.CNvPr.Descr,
+								Title:      v.Pic.NvPicPr.CNvPr.Title,
+								HlinkClick: nil,
+							},
+						},
+						BlipFill: xlsxBlipFill{
+							Blip: xlsxBlip{
+								Embed:  v.Pic.BlipFill.Blip.Embed,
+								Cstate: v.Pic.BlipFill.Blip.Cstate,
+								R:      v.Pic.BlipFill.Blip.R,
+							},
+							Stretch: xlsxStretch{
+								FillRect: v.Pic.BlipFill.Stretch.FillRect,
+							},
+						},
+						SpPr: xlsxSpPr{
+							Xfrm: xlsxXfrm{
+								Off: xlsxOff{
+									X: v.Pic.SpPr.Xfrm.Off.X,
+									Y: v.Pic.SpPr.Xfrm.Off.Y,
+								},
+								Ext: xlsxExt{
+									Cx: v.Pic.SpPr.Xfrm.Ext.Cx,
+									Cy: v.Pic.SpPr.Xfrm.Ext.Cy,
+								},
+							},
+							PrstGeom: xlsxPrstGeom{
+								Prst: v.Pic.SpPr.PrstGeom.Prst,
+							},
+						},
+					},
 				})
 			}
 		}
