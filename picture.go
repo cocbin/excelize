@@ -585,7 +585,10 @@ func (f *File) getPicture(row, col int, drawingXML, drawingRelationships string)
 type PictureCell struct {
 	Row int
 	Col int
+	ColOff int `xml:"colOff"`
+	RowOff int `xml:"rowOff"`
 }
+
 type Picture struct {
 	Name string
 	From PictureCell
@@ -633,10 +636,14 @@ func (f *File) getPictures(drawingXML, drawingRelationships string) (results[] *
 							From: PictureCell{
 								Row: deTwoCellAnchor.From.Row,
 								Col: deTwoCellAnchor.From.Col,
+								ColOff: deTwoCellAnchor.From.ColOff,
+								RowOff: deTwoCellAnchor.From.RowOff,
 							},
 							To: PictureCell {
 								Row: deTwoCellAnchor.To.Row,
 								Col: deTwoCellAnchor.To.Col,	
+								ColOff: deTwoCellAnchor.From.ColOff,
+								RowOff: deTwoCellAnchor.From.RowOff,
 							},
 						})
 					}
