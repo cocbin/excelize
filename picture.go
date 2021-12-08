@@ -642,8 +642,8 @@ func (f *File) getPictures(drawingXML, drawingRelationships string) (results[] *
 							To: PictureCell {
 								Row: deTwoCellAnchor.To.Row,
 								Col: deTwoCellAnchor.To.Col,	
-								ColOff: deTwoCellAnchor.From.ColOff,
-								RowOff: deTwoCellAnchor.From.RowOff,
+								ColOff: deTwoCellAnchor.To.ColOff,
+								RowOff: deTwoCellAnchor.To.RowOff,
 							},
 						})
 					}
