@@ -594,6 +594,8 @@ type Picture struct {
 	From PictureCell
 	To PictureCell
 	Raw [] byte
+	Width int
+	Height int
 }
 
 func (f *File) getPictures(drawingXML, drawingRelationships string) (results[] * Picture, err error) {
@@ -633,6 +635,8 @@ func (f *File) getPictures(drawingXML, drawingRelationships string) (results[] *
 						results = append(results, &Picture{
 							Name: ret,
 							Raw: buf,
+							Width: deTwoCellAnchor.Pic.SpPr.Xfrm.Ext.Cx,
+							Height: deTwoCellAnchor.Pic.SpPr.Xfrm.Ext.Cy,
 							From: PictureCell{
 								Row: deTwoCellAnchor.From.Row,
 								Col: deTwoCellAnchor.From.Col,
